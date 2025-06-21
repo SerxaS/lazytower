@@ -60,23 +60,26 @@ impl<F: Field> LazyTower<F> {
 
 #[cfg(test)]
 mod test {
+    use ark_ff::UniformRand;
+    use rand::thread_rng;
+
     use crate::tower::lazytower::LazyTower;
 
     #[test]
     fn test() {
         type F = ark_bn254::Fr;
 
-        let H = 2;
+        let H = 10;
         let W = 4;
 
-        let num1 = F::from(0);
-        let num2 = F::from(1);
-        let num3 = F::from(2);
-        let num4 = F::from(3);
+        let mut tower = LazyTower::<F>::new(H, W);
+        let mut rng = thread_rng();
 
-        let tower = LazyTower::<F>::new(H, W);
+        for _ in 0..5 {
+            tower.add(0, F::rand(&mut rng)).unwrap();
+        }
 
-        let check = tower.digestfunc(&[num1, num2, num3, num4]);
-        println!("hash:{:?}", check);
+        println!("full_levels:{:#?}", tower.full_levels);
+        println!("levels:{:#?}", tower.levels);
     }
 }
