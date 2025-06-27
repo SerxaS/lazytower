@@ -1,0 +1,6 @@
+[package]
+name = "lazytower"
+type = "lib"
+authors = [""]
+
+[dependencies]
