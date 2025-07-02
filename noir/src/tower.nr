@@ -1,16 +1,13 @@
 use super::utils::{num_2_bits, pow2};
 use std::hash::poseidon::bn254::hash_2;
 
-global H: u32 = 10;
-pub global W_BITS: u32 = 4;
-
 // len 0:          0
 // len 1        in[0]
 // len 2:     H(in[0], in[1])
 // len 3:   H(H(in[0], in[1]), in[2])
 // len 4: H(H(H(in[0], in[1]), in[2]), in[3])
 /// Compute hash chain of given length using Poseidon.
-fn hash_chain<let N: u32>(inputs: [Field; N], len: u32) -> Field {
+pub fn hash_chain<let N: u32>(inputs: [Field; N], len: u32) -> Field {
     let mut outs = [Field::from(0); (N + 1)];
     outs[0] = 0;
     outs[1] = inputs[0];
@@ -22,7 +19,7 @@ fn hash_chain<let N: u32>(inputs: [Field; N], len: u32) -> Field {
 }
 
 /// Check if `inputs` is in array (returns 1 or 0).
-fn is_in_array<let N: u32>(inputs: [Field; N], item: Field) -> u32 {
+fn include<let W_BITS: u32>(inputs: [Field; W_BITS], item: Field) -> u32 {
     let mut acc = 1;
 
     for i in 0..inputs.len() {
@@ -48,13 +45,14 @@ fn leading_ones<let N: u32>(len: u32) -> [u32; N] {
     let mut output = [0; N];
     let mut one_count = 0;
 
-    for i in 0..N as u32 {
+    for i in 0..N {
         if i < len {
             output[i] = 1;
         } else {
             output[i] = 0;
         };
-        assert((output[i] - 0) * (output[i] - 1) == 0);
+        let val = output[i] as Field;
+        assert(val * (val - 1) == 0);
         one_count += output[i];
     }
     assert(one_count == len);
@@ -73,12 +71,16 @@ fn leading_ones<let N: u32>(len: u32) -> [u32; N] {
 
 // Is root being included in the first prefix_len elements of inputs[]?
 /// Ensure root appears within the first `prefix_len` items.
-fn include_prefix<let N: u32>(inputs: [Field; N], prefix_len: u32, root: Field) -> u32 {
+pub fn include_prefix<let W_BITS: u32>(
+    inputs: [Field; W_BITS],
+    prefix_len: u32,
+    root: Field,
+) -> u32 {
     let leading_ones: [u32; W_BITS] = leading_ones(prefix_len);
-    let mut is_good = [0; N];
+    let mut is_good = [0; W_BITS];
     let mut good_count = 0;
 
-    for i in 0..N {
+    for i in 0..W_BITS {
         let result = if inputs[i] == root { 1 } else { 0 };
         is_good[i] = result & leading_ones[i];
         good_count += is_good[i];
@@ -96,7 +98,7 @@ fn include_prefix<let N: u32>(inputs: [Field; N], prefix_len: u32, root: Field) 
 // root = digest of childrens[root_lv - 1] if root_lv > 0
 // root = leaf if root_lv == 0
 /// Verify Merkle proof up to root_lv and return root.
-fn check_merkle_proof_and_compute_root(
+pub fn check_merkle_proof_and_compute_root<let H: u32, let W_BITS: u32>(
     childrens: [[Field; W_BITS]; H - 1],
     root_lv: u32,
     leaf: Field,
@@ -122,7 +124,7 @@ fn check_merkle_proof_and_compute_root(
 
     for lv in 0..(H - 1) {
         let not_must_include = 1 - (must_include[lv] != 0) as u32;
-        assert((is_in_array(childrens[lv], TBI[lv]) | not_must_include) == 1);
+        assert((include(childrens[lv], TBI[lv]) | not_must_include) == 1);
 
         TBI[lv + 1] = hash_chain(childrens[lv], W_BITS);
     }
@@ -133,7 +135,7 @@ fn check_merkle_proof_and_compute_root(
 }
 
 /// Count nonzero level slots in packed level_lengths.
-fn compute_data_height(mut level_lengths: u32) -> u32 {
+fn compute_data_height<let W_BITS: u32>(mut level_lengths: u32) -> u32 {
     let mut h = 0;
     let mut lvl_len = level_lengths;
 
@@ -147,7 +149,7 @@ fn compute_data_height(mut level_lengths: u32) -> u32 {
 }
 
 /// Extract W_BITS-wide level length at index lv.
-fn compute_single_level_length(level_lengths: u32, lv: u8) -> u32 {
+fn compute_single_level_length<let W_BITS: u32>(level_lengths: u32, lv: u8) -> u32 {
     let mask = (1 << W_BITS as u8) - 1;
     level_lengths >> (lv * W_BITS as u8) & mask
 }
@@ -163,13 +165,15 @@ fn compute_single_level_length(level_lengths: u32, lv: u8) -> u32 {
 // A very rough analogy would be like in the 10-base system,
 // the only sequence matches with 492 could only be the length 3 [2, 9, 4].
 /// Parse packed level_lengths into array and data height.
-fn compute_data_height_and_level_length_array(level_lengths: u32) -> (u32, [u32; H]) {
+pub fn compute_data_height_and_level_length_array<let H: u32, let W_BITS: u32>(
+    level_lengths: u32,
+) -> (u32, [u32; H]) {
     let mut level_length_array = [0; H];
-    let data_height = compute_data_height(level_lengths);
+    let data_height = compute_data_height::<W_BITS>(level_lengths);
 
     for lv in 0..H {
         let lv_u8 = lv as u8;
-        level_length_array[lv] = compute_single_level_length(level_lengths, lv_u8);
+        level_length_array[lv] = compute_single_level_length::<W_BITS>(level_lengths, lv_u8);
     }
 
     let ones: [u32; H] = leading_ones(data_height);
@@ -185,36 +189,4 @@ fn compute_data_height_and_level_length_array(level_lengths: u32) -> (u32, [u32;
 
     assert(level_lengths == s);
     (data_height, level_length_array)
-}
-
-/// Full LazyTower hash chain and inclusion check.
-pub fn lazy_tower_hash_chain(
-    level_lengths: u32,
-    digest_of_digest: Field,
-    top_down_digest: [Field; H],
-    root_lv: u32,
-    root_level: [Field; W_BITS],
-    childrens: [[Field; W_BITS]; H - 1],
-    item: Field,
-) {
-    assert(level_lengths != 0);
-    let (data_height, level_length_array) =
-        compute_data_height_and_level_length_array(level_lengths);
-    // root_lv < data_height  (where data_height < 2^8).
-    assert(data_height < (1 << 8));
-    assert(root_lv < data_height);
-
-    let root_level_length = level_length_array[root_lv];
-    assert(root_lv < H);
-
-    // The digest of top_down_digest matches digest_of_digest.
-    assert(hash_chain(top_down_digest, data_height) == digest_of_digest);
-
-    let root_level_digest = top_down_digest[data_height - root_lv - 1];
-    assert(hash_chain(root_level, root_level_length) == root_level_digest);
-
-    // The root is in the prefix of the root_level.
-    // The root covers the item.
-    let root = check_merkle_proof_and_compute_root(childrens, root_lv, item);
-    assert(include_prefix(root_level, root_level_length, root) == 1);
 }

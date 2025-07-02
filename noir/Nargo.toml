@@ -1,6 +1,6 @@
 [package]
 name = "lazytower"
-type = "lib"
+type = "bin"
 authors = [""]
 
 [dependencies]
