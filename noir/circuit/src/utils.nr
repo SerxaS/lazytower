@@ -21,5 +21,5 @@ pub fn pow2(exp: u32) -> u32 {
     for _ in 0..exp {
         result *= 2;
     }
-    result
+    result as u32
 }

@@ -3,18 +3,18 @@ import { poseidon2 } from "poseidon-lite";
 import { LazyTowerHashChainProofBuilder } from "./lazytower-hash-chain-proof-builder";
 
 // Converts bigint or number to string (for TOML).
-function bstr(v: bigint | number): string {
+function qstr(v: bigint | number): string {
   return `"${v.toString()}"`;
 }
 
 // Pretty TOML array for a list of values.
-function arrayLine(values: (bigint | number)[]) {
-  return `[${values.map(bstr).join(", ")}]`;
+function arrayLine(values: (bigint | number)[]): string {
+  return `[${values.map(qstr).join(", ")}]`;
 }
 
 // Format a 2D array of Merkle children for TOML.
-function formatChildrenArray(children: (bigint | number)[][]) {
-  return children.map(arrayLine).join(",\n");
+function formatChildrenArrayQuoted(children: (bigint | number)[][]): string {
+  return children.map(arr => `  ${arrayLine(arr)}`).join(",\n");
 }
 
 async function main() {
@@ -29,19 +29,19 @@ async function main() {
   const proof = pb.build(index); 
 
   const toml = `
-level_lengths = ${proof.levelLengths}
-digest_of_digest = "${proof.digestOfDigests}"
+level_lengths = ${qstr(proof.levelLengths)}
+digest_of_digest = ${qstr(proof.digestOfDigests)}
 top_down_digest = ${arrayLine(proof.topDownDigests)}
-root_lv = ${proof.rootLv}
+root_lv = ${qstr(proof.rootLv)}
 root_level = ${arrayLine(proof.rootLevel)}
 childrens = [
-${formatChildrenArray(proof.childrens)}
+${formatChildrenArrayQuoted(proof.childrens)}
 ]
-item = "${proof.item}"
+item = ${qstr(proof.item)}
 `.trim();
 
-  fs.writeFileSync("../noir/Prover.toml", toml);
-  console.log("prover.toml generated inside noir folder.");
+  fs.writeFileSync("../noir/example/Prover.toml", toml);
+  console.log("prover.toml generated inside noir/example folder.");
 }
 
 main();

@@ -1,5 +1,11 @@
-use super::utils::{num_2_bits, pow2};
-use std::hash::poseidon::bn254::hash_2;
+mod test;
+mod utils;
+
+use poseidon::poseidon::bn254::hash_2;
+use utils::{num_2_bits, pow2};
+
+pub global H: u32 = 10;
+pub global W_BITS: u32 = 4;
 
 // len 0:          0
 // len 1        in[0]
@@ -7,8 +13,8 @@ use std::hash::poseidon::bn254::hash_2;
 // len 3:   H(H(in[0], in[1]), in[2])
 // len 4: H(H(H(in[0], in[1]), in[2]), in[3])
 /// Compute hash chain of given length using Poseidon.
-pub fn hash_chain<let N: u32>(inputs: [Field; N], len: u32) -> Field {
-    let mut outs = [Field::from(0); (N + 1)];
+fn hash_chain<let N: u32>(inputs: [Field; N], len: u32) -> Field {
+    let mut outs = [0; (N + 1)];
     outs[0] = 0;
     outs[1] = inputs[0];
 
@@ -71,11 +77,7 @@ fn leading_ones<let N: u32>(len: u32) -> [u32; N] {
 
 // Is root being included in the first prefix_len elements of inputs[]?
 /// Ensure root appears within the first `prefix_len` items.
-pub fn include_prefix<let W_BITS: u32>(
-    inputs: [Field; W_BITS],
-    prefix_len: u32,
-    root: Field,
-) -> u32 {
+fn include_prefix<let W_BITS: u32>(inputs: [Field; W_BITS], prefix_len: u32, root: Field) -> u32 {
     let leading_ones: [u32; W_BITS] = leading_ones(prefix_len);
     let mut is_good = [0; W_BITS];
     let mut good_count = 0;
@@ -98,7 +100,7 @@ pub fn include_prefix<let W_BITS: u32>(
 // root = digest of childrens[root_lv - 1] if root_lv > 0
 // root = leaf if root_lv == 0
 /// Verify Merkle proof up to root_lv and return root.
-pub fn check_merkle_proof_and_compute_root<let H: u32, let W_BITS: u32>(
+fn check_merkle_proof_and_compute_root<let H: u32, let W_BITS: u32>(
     childrens: [[Field; W_BITS]; H - 1],
     root_lv: u32,
     leaf: Field,
@@ -165,7 +167,7 @@ fn compute_single_level_length<let W_BITS: u32>(level_lengths: u32, lv: u8) -> u
 // A very rough analogy would be like in the 10-base system,
 // the only sequence matches with 492 could only be the length 3 [2, 9, 4].
 /// Parse packed level_lengths into array and data height.
-pub fn compute_data_height_and_level_length_array<let H: u32, let W_BITS: u32>(
+fn compute_data_height_and_level_length_array<let H: u32, let W_BITS: u32>(
     level_lengths: u32,
 ) -> (u32, [u32; H]) {
     let mut level_length_array = [0; H];
@@ -189,4 +191,35 @@ pub fn compute_data_height_and_level_length_array<let H: u32, let W_BITS: u32>(
 
     assert(level_lengths == s);
     (data_height, level_length_array)
+}
+
+pub fn lazy_tower_hash_chain(
+    level_lengths: u32,
+    digest_of_digest: Field,
+    top_down_digest: [Field; H],
+    root_lv: u32,
+    root_level: [Field; W_BITS],
+    childrens: [[Field; W_BITS]; H - 1],
+    item: Field,
+) {
+    assert(level_lengths != 0);
+    let (data_height, level_length_array) =
+        compute_data_height_and_level_length_array::<H, W_BITS>(level_lengths);
+    // root_lv < data_height  (where data_height < 2^8).
+    assert(data_height < (1 << 8));
+    assert(root_lv < data_height);
+
+    let root_level_length = level_length_array[root_lv];
+    assert(root_lv < H);
+
+    // The digest of top_down_digest matches digest_of_digest.
+    assert(hash_chain(top_down_digest, data_height) == digest_of_digest);
+
+    let root_level_digest = top_down_digest[data_height - root_lv - 1];
+    assert(hash_chain(root_level, root_level_length) == root_level_digest);
+
+    // The root is in the prefix of the root_level.
+    // The root covers the item.
+    let root = check_merkle_proof_and_compute_root(childrens, root_lv, item);
+    assert(include_prefix(root_level, root_level_length, root) == 1);
 }

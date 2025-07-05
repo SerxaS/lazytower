@@ -1,74 +1,70 @@
 # 🧪 LazyTower ZK Proof Demo
 
-This guide walks you through how to generate the prover input (`prover.toml`), execute the Noir circuit, generate a proof, and verify it.
+This demo walks you through how to generate a `prover.toml` input, execute the Noir circuit, generate a proof using `bb`, write the verifying key, and verify the result.
 
 ---
 
-## 🛠️ Step 1: Generate `prover.toml` input file
+## 1. Generate `prover.toml` with JS
 
 ```bash
 cd js
-npm install              # only needed once
-npm run generate:toml    # creates ./noir/prover.toml
+npm install
+npm run generate:toml
 ```
 
 ✅ Output:
-```
-prover.toml generated inside noir folder.
+```text
+prover.toml generated inside noir/example folder.
 ```
 
 ---
 
-## 🧮 Step 2: Execute the Noir circuit
+## 2. Execute the Noir circuit
 
 ```bash
 cd ../noir
 nargo execute
 ```
 
-✅ This produces:
-- `target/lazytower.gz` – solved witness
-- `target/public_inputs` – public inputs
-- `target/lazytower.json` – compiled circuit bytecode
+✅ Output:
+- target/example.json  
+- target/example.gz
 
 ---
 
-## 🔐 Step 3: Generate the proof
+## 3. Generate proof with `bb`
 
 ```bash
-bb prove -b ./target/lazytower.json -w ./target/lazytower.gz -o ./target
+cd example
+mkdir -p ./target
+bb prove -b ../../target/example.json -w ../../target/example.gz -o ./target
 ```
 
 ✅ Output:
-```
-Proof saved to "./target/proof"
-```
+- ./target/proof.json  
+- ./target/public_inputs.json
 
 ---
 
-## 🧾 Step 4: Write verifying key (VK)
+## 4. Write verifying key
 
 ```bash
-bb write_vk -b ./target/lazytower.json -o ./target
+bb write_vk -b ../../target/example.json -o ./target
 ```
 
 ✅ Output:
-```
-VK saved to "./target/vk"
-```
+- ./target/vk.json
 
 ---
 
-## ✅ Step 5: Verify the proof
+## 5. Verify the proof
 
 ```bash
-bb verify -k ./target/vk -p ./target/proof
+bb verify -k ./target/vk -p ./target/proof -i ./target/public_inputs
 ```
 
 ✅ Output:
-```
-Proof verified successfully
-```
+- Proof verified successfully
 
 ---
 
@@ -82,12 +78,3 @@ If you change `H` or `W_BITS` in the JS/TS code:
   - `global W_BITS: u32 = ...;`
 
 They must be the same in both places for proof generation and verification to succeed.
-
-### 📁 Folder structure
-
-```
-lazytower/
-├── js/              # JavaScript proof generator
-├── noir/            # Noir circuit and inputs
-│   └── prover.toml  # Auto-generated prover input
-```
