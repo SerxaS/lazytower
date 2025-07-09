@@ -4,4 +4,4 @@ type = "bin"
 authors = ["SerxaS"]
 
 [dependencies]
-lazytower = { path = "../circuit" }
+circuit = { path = "../circuit" }

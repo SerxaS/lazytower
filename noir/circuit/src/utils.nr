@@ -1,15 +1,15 @@
-/// Convert integer to W_BITS-sized binary array (LSB first).
-pub fn num_2_bits<let W_BITS: u32>(level_length_array: u32) -> [u32; W_BITS] {
-    let mut output = [0; W_BITS];
+/// Convert integer to binary array (LSB first).
+pub fn num_2_bits<let N: u32>(level_length_array: u32) -> [u32; N] {
+    let mut output = [0; N];
     let mut lc1 = 0;
     let mut e2 = 1;
 
-    for i in 0..W_BITS {
+    for i in 0..N {
         output[i] = (level_length_array >> (i as u8)) & 1;
         let val = output[i] as Field;
         assert(val * (val - 1) == 0);
         lc1 += output[i] * e2;
-        e2 = e2 + e2;
+        e2 += e2;
     }
     assert(lc1 == level_length_array);
     output
@@ -21,5 +21,5 @@ pub fn pow2(exp: u32) -> u32 {
     for _ in 0..exp {
         result *= 2;
     }
-    result as u32
+    result
 }

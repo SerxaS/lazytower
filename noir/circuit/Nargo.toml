@@ -1,5 +1,5 @@
 [package]
-name = "lazytower"
+name = "circuit"
 type = "lib"
 authors = ["SerxaS"]
 

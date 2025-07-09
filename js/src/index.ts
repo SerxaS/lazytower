@@ -18,7 +18,7 @@ function formatChildrenArrayQuoted(children: (bigint | number)[][]): string {
 }
 
 async function main() {
-  const H = 10;
+  const H = 8;
   const W = 4;
   const hash = (a: bigint, b: bigint) => poseidon2([a, b]);
 
