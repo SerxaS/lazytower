@@ -32,6 +32,7 @@ nargo execute
 ✅ Output:
 - target/example.json  
 - target/example.gz
+  
 ➡️ This compiles the circuit and runs the example test defined in “example/src/main.nr”.
 
 ---
