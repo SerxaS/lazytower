@@ -1,6 +1,8 @@
 # 🧪 LazyTower ZK Proof Demo
 
-This demo walks through generating a `prover.toml` input, executing the Noir circuit, generating a proof using `bb`, writing the verifying key, and verifying the result.
+This demo verifies inclusion of an item in a recursive Merkle-like hash-chain using the `LazyTower` circuit.  
+It walks through generating a `prover.toml` input, executing the Noir circuit, generating a proof using `bb`, writing the verifying key, and verifying the result.
+
 
 
 ---
@@ -30,6 +32,7 @@ nargo execute
 ✅ Output:
 - target/example.json  
 - target/example.gz
+➡️ This compiles the circuit and runs the example test defined in “example/src/main.nr”.
 
 ---
 
@@ -42,8 +45,8 @@ bb prove -b ../../target/example.json -w ../../target/example.gz -o ./target
 ```
 
 ✅ Output:
-- ./target/proof.json  
-- ./target/public_inputs.json
+- ./target/proof  
+- ./target/public_inputs
 
 ---
 
@@ -54,7 +57,7 @@ bb write_vk -b ../../target/example.json -o ./target
 ```
 
 ✅ Output:
-- ./target/vk.json
+- ./target/vk
 
 ---
 
@@ -65,6 +68,6 @@ bb verify -k ./target/vk -p ./target/proof -i ./target/public_inputs
 ```
 
 ✅ Output:
-- Proof verified successfully
+- Proof verified successfully.
 
 ---

@@ -1,23 +1,30 @@
 // =======================================================================
-//                            LazyTower Circuit
+//                             LazyTower Circuit
 // =======================================================================
-// This generic struct implements a recursive Merkle-like
-// hash-chain circuit with configurable depth (H) and width (W_BITS).
+// A recursive hash-chain circuit that verifies membership proofs over a
+// multi-level tree structure, similar to a Merkle tree.
 //
-// Noir Limitations & Constraints:
+// Parameters:
+// - H (u32): Max number of levels (tree height).
+// - W (u32): Max number of elements per level.
+// - W_BITS (u32): Bit-width used to encode each level's length.
+//
+// - Verifies that a claimed item is covered by a valid Merkle-like
+//   proof rooted at `digest_of_digest`.
+//
+// Noir Constraints:
 // - Generic parameters must be of type `u32`.
-// - `H * W_BITS <= 32` due to Noir's constraint on total array size.
-// - `level_lengths` must encode H level sizes in packed W_BITS slices.
+// - H * W_BITS must be <= 32 (due to packed bit encoding limits).
 //
-// Inputs to `lazy_tower_hash_chain()` must follow the spec for correctness.
+// See `lazy_tower_hash_chain()` for expected inputs and proof structure.
 // =======================================================================
 
 use crate::utils::{num_2_bits, pow2};
 use poseidon::poseidon::bn254::hash_2;
 
-pub struct LazyTower<let H: u32, let W_BITS: u32> {}
+pub struct LazyTower<let H: u32, let W: u32, let W_BITS: u32> {}
 
-impl<let H: u32, let W_BITS: u32> LazyTower<H, W_BITS> {
+impl<let H: u32, let W: u32, let W_BITS: u32> LazyTower<H, W, W_BITS> {
     // len 0:          0
     // len 1        in[0]
     // len 2:     H(in[0], in[1])
@@ -38,18 +45,14 @@ impl<let H: u32, let W_BITS: u32> LazyTower<H, W_BITS> {
     }
 
     /// Check if `inputs` is in array (returns 1 or 0).
-    fn include(inputs: [Field; W_BITS], item: Field) -> u32 {
+    fn include(inputs: [Field; W], item: Field) -> u32 {
         let mut acc = 1;
 
         for i in 0..inputs.len() {
             acc *= inputs[i] - item;
         }
 
-        if acc == 0 {
-            1
-        } else {
-            0
-        }
+        (acc == 0) as u32
     }
 
     //             (N)(len)
@@ -86,12 +89,12 @@ impl<let H: u32, let W_BITS: u32> LazyTower<H, W_BITS> {
 
     // Is root being included in the first prefix_len elements of inputs[]?
     /// Ensure root appears within the first `prefix_len` items.
-    fn include_prefix(inputs: [Field; W_BITS], prefix_len: u32, root: Field) -> u32 {
-        let leading_ones: [u32; W_BITS] = Self::leading_ones(prefix_len);
-        let mut is_good = [0; W_BITS];
+    fn include_prefix(inputs: [Field; W], prefix_len: u32, root: Field) -> u32 {
+        let leading_ones: [u32; W] = Self::leading_ones(prefix_len);
+        let mut is_good = [0; W];
         let mut good_count = 0;
 
-        for i in 0..W_BITS {
+        for i in 0..W {
             let result = if inputs[i] == root { 1 } else { 0 };
             is_good[i] = result & leading_ones[i];
             good_count += is_good[i];
@@ -110,7 +113,7 @@ impl<let H: u32, let W_BITS: u32> LazyTower<H, W_BITS> {
     // root = leaf if root_lv == 0
     /// Verify Merkle proof up to root_lv and return root.
     fn check_merkle_proof_and_compute_root(
-        childrens: [[Field; W_BITS]; H - 1],
+        childrens: [[Field; W]; H - 1],
         root_lv: u32,
         leaf: Field,
     ) -> Field {
@@ -137,7 +140,7 @@ impl<let H: u32, let W_BITS: u32> LazyTower<H, W_BITS> {
             let not_must_include = 1 - (must_include[lv] != 0) as u32;
             assert((Self::include(childrens[lv], TBI[lv]) | not_must_include) == 1);
 
-            TBI[lv + 1] = Self::hash_chain(childrens[lv], W_BITS);
+            TBI[lv + 1] = Self::hash_chain(childrens[lv], W);
         }
 
         let root = TBI[root_lv];
@@ -148,12 +151,11 @@ impl<let H: u32, let W_BITS: u32> LazyTower<H, W_BITS> {
     /// Count nonzero level slots in packed level_lengths.
     fn compute_data_height(mut level_lengths: u32) -> u32 {
         let mut h = 0;
-        let mut lvl_len = level_lengths;
 
         for _ in 0..(32 / W_BITS) {
-            let is_nonzero = (lvl_len != 0) as u32;
+            let is_nonzero = (level_lengths != 0) as u32;
             h += is_nonzero;
-            lvl_len >>= W_BITS as u8;
+            level_lengths >>= W_BITS as u8;
         }
 
         h
@@ -191,7 +193,7 @@ impl<let H: u32, let W_BITS: u32> LazyTower<H, W_BITS> {
 
         for lv in 0..H {
             dummy[lv] = num_2_bits(level_length_array[lv]);
-            assert(level_length_array[lv] <= W_BITS);
+            assert(level_length_array[lv] <= W);
             assert((level_length_array[lv] != 0) == (ones[lv] == 1));
             s += level_length_array[lv] * pow2(lv * W_BITS);
         }
@@ -200,40 +202,54 @@ impl<let H: u32, let W_BITS: u32> LazyTower<H, W_BITS> {
         (data_height, level_length_array)
     }
 
+    /// Verifies a claimed item's inclusion in a multi-level hash chain ending in `digest_of_digest`.
     pub fn lazy_tower_hash_chain(
         level_lengths: u32,
         digest_of_digest: Field,
         top_down_digest: [Field; H],
         root_lv: u32,
-        root_level: [Field; W_BITS],
-        childrens: [[Field; W_BITS]; H - 1],
+        root_level: [Field; W],
+        childrens: [[Field; W]; H - 1],
         item: Field,
     ) {
+        // Ensure at least one level exists; cannot prove inclusion with no data.
         assert(level_lengths != 0);
+
+        // Unpack level_lengths and compute how many levels have non-zero data.
         let (data_height, level_length_array) =
             Self::compute_data_height_and_level_length_array(level_lengths);
-        // root_lv < data_height  (where data_height < 2^8).
-        assert(data_height < (pow2(8)));
+
+        // Ensure computed height fits within the configured circuit limit.
+        assert(data_height <= H);
+
+        // Ensure the claimed root level is within the active levels.
         assert(root_lv < data_height);
 
+        // Fetch the number of elements at the root level.
         let root_level_length = level_length_array[root_lv];
+
+        // Root level index must be valid.
         assert(root_lv < H);
 
-        // The digest of top_down_digest matches digest_of_digest.
+        // Confirm that top-down digests compress correctly to digest_of_digest.
         assert(Self::hash_chain(top_down_digest, data_height) == digest_of_digest);
 
+        // Reconstruct root_level digest and compare it to expected value.
         let root_level_digest = top_down_digest[data_height - root_lv - 1];
         assert(Self::hash_chain(root_level, root_level_length) == root_level_digest);
 
-        // The root is in the prefix of the root_level.
-        // The root covers the item.
+        // Check that the Merkle root includes the item and is present in root_level.
         let root = Self::check_merkle_proof_and_compute_root(childrens, root_lv, item);
         assert(Self::include_prefix(root_level, root_level_length, root) == 1);
     }
 }
 
 #[test]
+/// Integration test for a LazyTower proof with hardcoded inputs.
 fn test_lazy_tower_hash_chain() {
+    // level_lengths = 0b0001_0001 = 17
+    // This encodes level lengths [1, 1] for levels 0 and 1 (others are 0)
+    // With W_BITS = 4, each level's length is packed in 4 bits
     let level_lengths = 17;
     let digest_of_digest =
         2961510082795718370565764606082963141649148245355877322840462878011704136563;
@@ -261,7 +277,7 @@ fn test_lazy_tower_hash_chain() {
     ];
     let item = 3;
 
-    LazyTower::<8, 4>::lazy_tower_hash_chain(
+    LazyTower::<8, 4, 4>::lazy_tower_hash_chain(
         level_lengths,
         digest_of_digest,
         top_down_digest,

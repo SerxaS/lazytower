@@ -1,4 +1,6 @@
-/// Convert integer to binary array (LSB first).
+//! Utility functions for binary encoding and powers of two.
+
+/// Convert a u32 integer into a binary array of N bits (least significant bit first).
 pub fn num_2_bits<let N: u32>(level_length_array: u32) -> [u32; N] {
     let mut output = [0; N];
     let mut lc1 = 0;
@@ -15,7 +17,7 @@ pub fn num_2_bits<let N: u32>(level_length_array: u32) -> [u32; N] {
     output
 }
 
-/// Compute 2^exp.
+/// Compute 2 raised to the power `exp` (i.e. 2^exp).
 pub fn pow2(exp: u32) -> u32 {
     let mut result = 1;
     for _ in 0..exp {
