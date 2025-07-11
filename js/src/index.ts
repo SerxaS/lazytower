@@ -18,14 +18,14 @@ function formatChildrenArrayQuoted(children: (bigint | number)[][]): string {
 }
 
 async function main() {
-  const H = 8;
+  const H = 20;
   const W = 4;
   const hash = (a: bigint, b: bigint) => poseidon2([a, b]);
 
   const pb = LazyTowerHashChainProofBuilder(H, W, hash);
-  for (let i = 0n; i < 5n; i++) pb.add(i);
+  for (let i = 0n; i < 250n; i++) pb.add(i);
 
-  const index = pb.indexOf(3n);
+  const index = pb.indexOf(16n);
   const proof = pb.build(index); 
 
   const toml = `

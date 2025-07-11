@@ -8,7 +8,6 @@ This folder contains the core components of the `LazyTower` recursive hash-chain
 
 - `lib.nr` – Entry point that exposes the reusable LazyTower API.
 - `tower.nr` – Core implementation of the `LazyTower` circuit logic. It verifies inclusion proofs in a multi-level Merkle-like structure using Poseidon hashing.
-- `utils.nr` – Helper utilities.
 
 ---
 

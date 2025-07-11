@@ -3,7 +3,7 @@ use circuit::tower::LazyTower;
 // - H: Number of levels (tree height).
 // - W: Max number of elements per level.
 // - W_BITS: Bit-width used to encode each level's length in packed format.
-global H: u32 = 8;
+global H: u32 = 20;
 global W: u32 = 4;
 global W_BITS: u32 = 4;
 

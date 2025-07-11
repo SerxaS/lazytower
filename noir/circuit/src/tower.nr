@@ -12,14 +12,9 @@
 // - Verifies that a claimed item is covered by a valid Merkle-like
 //   proof rooted at `digest_of_digest`.
 //
-// Noir Constraints:
-// - Generic parameters must be of type `u32`.
-// - H * W_BITS must be <= 32 (due to packed bit encoding limits).
-//
 // See `lazy_tower_hash_chain()` for expected inputs and proof structure.
 // =======================================================================
 
-use crate::utils::{num_2_bits, pow2};
 use poseidon::poseidon::bn254::hash_2;
 
 pub struct LazyTower<let H: u32, let W: u32, let W_BITS: u32> {}
@@ -125,7 +120,7 @@ impl<let H: u32, let W: u32, let W_BITS: u32> LazyTower<H, W, W_BITS> {
         // TBI[lv] = digest of children[lv - 1]  for all lv in [1 ... root_lv]
         // TBI[root_lv] is the root
         //
-        // For root_lv = 3, H = 5:                                                         mustInclude[]
+        // For root_lv = 3, H = 5:                                                   mustInclude[]
         //                                  TBI[4]                                        0
         // root_lv =>                       TBI[3] <== digest of childrens[2] ==> *root*  0
         //           childrens[2]  include  TBI[2] <== digest of childrens[1]             1
@@ -192,13 +187,13 @@ impl<let H: u32, let W: u32, let W_BITS: u32> LazyTower<H, W, W_BITS> {
         let mut s = 0;
 
         for lv in 0..H {
-            dummy[lv] = num_2_bits(level_length_array[lv]);
+            dummy[lv] = level_length_array[lv] as Field.to_le_bits();
             assert(level_length_array[lv] <= W);
             assert((level_length_array[lv] != 0) == (ones[lv] == 1));
-            s += level_length_array[lv] * pow2(lv * W_BITS);
+            s += level_length_array[lv] as Field * 2.pow_32(lv as Field * W_BITS as Field);
         }
 
-        assert(level_lengths == s);
+        assert(level_lengths as Field == s);
         (data_height, level_length_array)
     }
 
@@ -219,8 +214,8 @@ impl<let H: u32, let W: u32, let W_BITS: u32> LazyTower<H, W, W_BITS> {
         let (data_height, level_length_array) =
             Self::compute_data_height_and_level_length_array(level_lengths);
 
-        // Ensure computed height fits within the configured circuit limit.
-        assert(data_height <= H);
+        // Ensure dataHeight < 2^8
+        assert(data_height < (2.pow_32(8)) as u32);
 
         // Ensure the claimed root level is within the active levels.
         assert(root_lv < data_height);

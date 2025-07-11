@@ -3,7 +3,7 @@
 This demo verifies inclusion of an item in a recursive Merkle-like hash-chain using the `LazyTower` circuit.  
 It walks through generating a `prover.toml` input, executing the Noir circuit, generating a proof using `bb`, writing the verifying key, and verifying the result.
 
-
+> ⚠️ **Important:** Make sure the constants `H`, `W`, and `W_BITS` are **identical** in both the JS generator (`js/src/index.ts`, used by `npm run generate:toml`) **and** the Noir example (`example/src/main.nr`).  If they differ, the example circuit will fail.
 
 ---
 
